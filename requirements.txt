@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-docx
+fastmcp
+sentence-transformers
+langchain_huggingface
+python-dotenv
+#langchain_ollama
