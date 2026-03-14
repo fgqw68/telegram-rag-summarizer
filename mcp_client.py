@@ -1,12 +1,10 @@
 import os
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-# Import the port logic directly from your server file
-from mcp_server import get_server_port
 
-# Get the port from the server file or environment variable
-MCP_PORT = os.getenv("MCP_PORT", str(get_server_port()))
-MCP_URL = f"http://127.0.0.1:{MCP_PORT}/sse"
+
+
+MCP_URL = f"http://127.0.0.1:8000/sse"
 
 async def list_mcp_tools():
     """Fetches the list of tools from the running MCP server."""
@@ -34,3 +32,4 @@ async def call_mcp_tool(tool_name: str, arguments: dict):
                 return "No information found."
     except Exception as e:
         return f"Client error calling tool '{tool_name}': {str(e)}"
+    

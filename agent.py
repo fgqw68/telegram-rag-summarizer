@@ -59,3 +59,24 @@ class ChatAgent:
 
         # If no tool was needed, just return the first response
         return llm_response.content
+
+
+async def feed_knowledgebase(text: str):
+    """
+    Orchestrates the feeding of new information to the MCP server.
+    """
+    # Define the tool name as registered on your MCP server
+    TOOL_NAME = "append_to_knowledge_base"
+    
+    # Define the arguments matching your server's method signature
+    arguments = {"text": text}
+    
+    print(f"🤖 Agent: Forwarding new knowledge to MCP...")
+    
+    # Invoke your existing call_mcp_tool helper
+    result = await call_mcp_tool(TOOL_NAME, arguments)
+    
+    return result
+
+# Note: Ensure your call_mcp_tool(tool_name, arguments) 
+# helper is either in this file or imported here.

@@ -1,8 +1,6 @@
-fastapi
 uvicorn
-python-docx
+dotenv
 fastmcp
-sentence-transformers
 langchain_huggingface
-python-dotenv
-#langchain_ollama
+httpx
+fastapi

@@ -5,13 +5,11 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Optional
 from agent import ChatAgent  
-from fastapi import FastAPI, Request, Header, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Request, Header, HTTPException, Body
 from fastapi.concurrency import run_in_threadpool
 from httpx import AsyncClient
 from pydantic import BaseModel
-from docx import Document
-from docx.shared import Pt
-from mcp_server import get_server_port
+from agent import feed_knowledgebase
 
 # Load environment variables from .env file
 load_dotenv()
@@ -33,37 +31,6 @@ KNOWLEDGE_BASE_PATH = "knowledge_base.docx"
 # Pydantic model for feed request body
 class FeedRequest(BaseModel):
     text: str
-
-
-def append_to_word_doc(text: str) -> None:
-    """
-    Append text to the Word document.
-
-    Args:
-        text: The text to append to the document
-    """
-    try:
-        # Create document if it doesn't exist
-        if os.path.exists(KNOWLEDGE_BASE_PATH):
-            doc = Document(KNOWLEDGE_BASE_PATH)
-        else:
-            doc = Document()
-            # Add a title for new documents
-            title = doc.add_heading("Knowledge Base", 0)
-            title.runs[0].font.size = Pt(14)
-
-        # Append the new text as a paragraph
-        doc.add_paragraph(text)
-
-        # Save the document
-        doc.save(KNOWLEDGE_BASE_PATH)
-    except PermissionError as e:
-        print(f"Permission error when writing to {KNOWLEDGE_BASE_PATH}: {e}")
-        raise
-    except Exception as e:
-        print(f"Error writing to {KNOWLEDGE_BASE_PATH}: {e}")
-        raise
-
 
 
 @app.get("/health")
@@ -142,56 +109,27 @@ async def webhook(
     return {"status": "ok"}
 
 @app.post("/admin/feed")
-async def feed_knowledge_base(request: FeedRequest, background_tasks: BackgroundTasks):
+async def admin_feed_knowledge(data: dict = Body(...)):
     """
-    Administrative endpoint to ingest new text into the knowledge base.
-
-    The text is appended to knowledge_base.docx and the MCP server index
-    is refreshed in the background to make the new data searchable.
-
-    Args:
-        request: FeedRequest containing the text to add
-        background_tasks: FastAPI BackgroundTasks for non-blocking operations
-
-    Returns:
-        JSON response confirming the operation
+    HTTP Entry point: Receives request and delegates to the Agent.
     """
-    if not request.text or not request.text.strip():
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    text_content = data.get("text")
+    
+    if not text_content:
+        raise HTTPException(status_code=400, detail="No text provided")
 
     try:
-        # Run the document write operation in a threadpool to prevent blocking the event loop
-        await run_in_threadpool(append_to_word_doc, request.text)
-    except PermissionError as e:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Permission denied: Unable to write to knowledge base. {str(e)}"
-        )
-    except FileNotFoundError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"File system error: {str(e)}"
-        )
-    except OSError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"File system error: {str(e)}"
-        )
+        # main.py talks to the Agent, not the MCP server directly
+        agent_report = await feed_knowledgebase(text_content)
+
+        return {
+            "status": "success",
+            "agent_report": agent_report
+        }
+
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to write to knowledge base: {str(e)}"
-        )
-
-    # Add the MCP index refresh as a background task
-    background_tasks.add_task(refresh_mcp_index)
-
-    return {
-        "success": True,
-        "message": f"Text successfully added to knowledge base ({len(request.text)} characters)",
-        "reindexing": "in_progress"
-    }
-
+        print(f"Agent feed failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Agent Error: {str(e)}")
 
 
 
